@@ -6,7 +6,6 @@ import {
   LogLevel,
   MatchersV3,
 } from "@pact-foundation/pact";
-import axios from "axios";
 
 chai.use(chaiAsPromised);
 
@@ -17,32 +16,44 @@ describe("Pact Consumer Test", () => {
     consumer: "myconsumer",
     provider: "myprovider",
     spec: SpecificationVersion.SPECIFICATION_VERSION_V3,
-    logLevel: (process.env.LOG_LEVEL as LogLevel) || "info",
+    logLevel: "trace",
   });
 
   it("creates a pact to verify", async () => {
+    const formData = new FormData();
+
+    formData.append("name", "John Doe");
+
     await pact
       .addInteraction({
         uponReceiving: "a request for a foo",
         withRequest: {
-          method: "GET",
-          path: "/",
+          method: "POST",
+          path: "/test",
+          body: formData,
+          headers: {
+            "Content-Type": `multipart/form-data`,
+          },
         },
         willRespondWith: {
-          status: 200,
+          status: 201,
           body: {
             foo: MatchersV3.like("bar"),
           },
         },
       })
-      .executeTest(async (mockserver) => {
-        const res = await axios.request({
-          baseURL: mockserver.url,
-          method: "GET",
-          url: "/",
+      .executeTest(async (mockServer) => {
+        const response = await fetch(`${mockServer.url}/test`, {
+          headers: {
+            "Content-Type": `multipart/form-data`,
+          },
+          method: "POST",
+          body: formData,
         });
 
-        expect(res.data.foo).to.equal("bar");
+        const data = await response.json();
+
+        expect(data.foo).to.equal("bar");
       });
   });
 });
